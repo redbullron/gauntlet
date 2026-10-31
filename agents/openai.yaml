@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gauntlet Spawn"
+  short_description: "Parallel Opus workers with coordinator review"
+  default_prompt: "Use $gauntlet-spawn to split this work among parallel Claude Opus workers, then review and integrate their results."
