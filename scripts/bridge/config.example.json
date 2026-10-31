@@ -1,0 +1,7 @@
+{
+  "agents": {
+    "codex": {"executable": "/absolute/path/to/codex"},
+    "claude": {"executable": "/absolute/path/to/claude", "model": "opus"}
+  },
+  "worker_timeout_seconds": 900
+}

@@ -1,45 +1,65 @@
-# Gauntlet Spawn
+# Gauntlet
 
-Let Codex or Claude Code coordinate parallel Claude Opus workers, review their patches, and integrate the results. Each worker gets an isolated source copy, a bounded task, allowed file paths, and a deadline. The controller never merges results automatically.
+One skill for Codex and Claude Code: review, repair, parallel Opus work with **Spawn**, project profiles, progress, and cancellation. Spawn is a mode of Gauntlet, bundled with the original Codex/Claude review bridge.
 
-This is a standalone skill and Python controller. It does not require the separate Gauntlet review bridge. It requires Python 3.11+, Git, and a native Claude Code executable with an existing login and access to Opus. Workers consume your Claude usage allowance. No API key is bundled or required by this controller.
+## Modes
 
-## Install
+| Request | What it does |
+| --- | --- |
+| `gauntlet spawn <task>` | Parallel Claude Opus workers in isolated source copies; the coordinating Codex or Claude reviews and integrates their patches. |
+| `gauntlet fix <project> <task>` | Bounded review/repair loop with Codex and Claude. |
+| `gauntlet review <project> <scope>` | Read-only reviews from both models, with configured local checks. |
+| `gauntlet project` | List or configure project folders, checks, and shared context. |
+| `gauntlet status <id>` | Inspect the relevant Spawn batch or review job. |
+| `gauntlet stop <id>` | Cancel the identified batch/job and verify it stopped. |
 
-Download or clone this repository. Copy the whole repository folder (excluding `.git`) to one of these locations, keeping `SKILL.md` at the top:
+Spawn completion is not dual-model approval. Only the review bridge's `approved` state means both reviewers approved the recorded revision with required checks. The controllers retain separate histories and concurrency limits; selecting one mode does not automatically run another.
 
-- Codex: `~/.codex/skills/gauntlet-spawn/`
-- Claude Code: `~/.claude/skills/gauntlet-spawn/`
+## Install in Codex or Claude Code
 
-You can install a copy in both. Both use the same default local state directory, so only one batch runs at a time across the two coordinators.
+Requirements: Python 3.11+, Git, and a compatible native Claude Code CLI with an existing login and access to Opus. Review/fix also requires the Codex CLI and its login. Workers consume your CLI usage allowance; this repository contains no API keys or subscriptions.
 
-In Codex, ask: `Use $gauntlet-spawn to implement this feature, then review and integrate the results.`
+Clone directly into the appropriate skills directory (the target must not already exist):
 
-In Claude Code, ask: `/gauntlet-spawn implement this feature, then review and integrate the results.` See the [official Claude Code skills documentation](https://code.claude.com/docs/en/skills).
+```sh
+# Codex
+ git clone https://github.com/redbullron/gauntlet.git ~/.codex/skills/gauntlet
+# Claude Code
+ git clone https://github.com/redbullron/gauntlet.git ~/.claude/skills/gauntlet
+```
 
-From the installed skill directory, check prerequisites without paid inference:
+Alternatively copy the repository contents, excluding `.git`, into that directory. Keep `SKILL.md` at its root. For an existing installation, back it up and merge the skill files; retain local config and state. Reload the client if needed to discover the updated skill. Claude Code skill locations are described in its [official documentation](https://code.claude.com/docs/en/skills).
+
+In Codex: `Use $gauntlet spawn to implement this feature, then review and integrate the results.`
+
+In Claude Code: `/gauntlet spawn implement this feature, then review and integrate the results.`
+
+### Spawn
+
+From the installed Gauntlet directory:
 
 ```sh
 python scripts/spawn.py doctor
 python scripts/test_spawn.py
 ```
 
-Use your Python 3.11+ executable if it is named differently. `doctor` checks CLI capabilities, not authentication or quota. If it reports missing flags, use a compatible native Claude CLI; do not remove the controller's restrictions to bypass that failure. If discovery fails, supply `claude_executable` in your batch manifest.
+Read [Spawn](references/spawn.md) and its [manifest/command reference](references/controller.md). Default concurrency is three, maximum eight. Workers have explicit file ownership and fixed deadlines; the controller never automatically merges. If executable discovery fails, set `claude_executable` in the manifest. `doctor` checks required CLI flags without inference, not login or quota. Do not remove restrictions to bypass an incompatible CLI.
 
-## How it works
+### Review and repair
 
-1. The coordinator divides authorized work into independent tasks with nonoverlapping edit paths.
-2. It prepares a manifest and checks the source inventory with `preflight`.
-3. `start` snapshots the source and launches up to three workers by default (maximum eight).
-4. Workers produce reports, patches, scope verdicts, and optional validation outputs.
-5. The coordinator reviews and integrates selected changes, then validates the combined result.
+The full bridge is included in `scripts/bridge/`. If you already have `local-gauntlet` registered, the skill uses it and preserves its profiles and history. Otherwise follow [bridge setup](references/bridge.md): create your local executable-path config, then use the CLI or register its MCP stdio server. No separate Gauntlet repository is needed.
 
-Read [the skill](SKILL.md) and [the manifest and command reference](references/controller.md) for details. Read-only workers can investigate the same source; dependent coding tasks require separate, reviewed waves. Requested model is the `opus` alias; actual returned model IDs are recorded when available.
+```sh
+python scripts/bridge/bridge.py --help
+python scripts/bridge/test_bridge.py
+```
 
-## Boundaries and support
+## Boundaries and validation
 
-Windows is locally validated, including native kill-on-close Job Objects. macOS/Linux process-group handling is implemented but not validated in this release. The local suite uses fake workers and makes no model inference calls. Real Windows Opus coding batches have also completed, with human-facing coordinator review.
+Windows is locally validated. Cross-platform process handling exists but is not claimed as validated in this release. Local suites use mocks/fake workers and trusted local processes, without paid inference. Real Windows Opus coding batches have also completed with coordinator review.
 
-Source copies, worker transcripts, and patches remain locally under `~/.codex/gauntlet-spawn`; set `GAUNTLET_SPAWN_HOME` to choose another state directory. Do not publish that directory. Snapshot exclusions are not a secret scanner: sanitize source files before sending them to a model. File-tool restrictions and post-run scope checks are not an operating-system security sandbox. Trusted validation commands can execute code.
+Spawn artifacts default to `~/.codex/gauntlet-spawn` (override: `GAUNTLET_SPAWN_HOME`). New bridge artifacts default to `scripts/bridge/state` (override: `GAUNTLET_STATE_DIR`). Both clients can share a controller's state by using the same directory and configuration. Do not publish state, local configs, transcripts, or private project source.
 
-Cancelled, expired, or interrupted batches cannot resume themselves. There are no automatic retries, model fallbacks, merges, deployments, or deadline extensions. A completed batch can still contain failed workers; inspect each result. Claude-only orchestration is not an independent Codex review or a dual-model approval.
+Source exclusions are not a secret scanner. Sanitize files before sending them to models. File-tool restrictions and post-run scope checks are not an operating-system sandbox. Validation commands execute code and must be trusted. Cancelled/expired Spawn batches cannot resume themselves. Neither workflow automatically applies patches, deploys, or publishes.
+
+MIT licensed. This repository was originally named `gauntlet-spawn`; Spawn now ships inside Gauntlet.

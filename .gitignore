@@ -7,3 +7,5 @@ __pycache__/
 state/
 runs/
 *.log
+config.json
+*.sqlite3*
